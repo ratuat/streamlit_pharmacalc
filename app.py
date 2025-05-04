@@ -6,98 +6,206 @@ from openai import OpenAI
 import json
 
 # Initialize OpenAI client
-
 client = OpenAI(api_key=st.secrets["deepseek"]["api_key"], 
                 base_url="https://api.deepseek.com")
 
-# Function to fetch parameters from OpenAI API
-def fetch_parameters_from_api(country, drug_name, drug_comparator, disease):
-    prompt =        f"""
-                      You are an expert in pharmacoeconomics. Provide realistic parameters for a pharmacoeconomic analysis of a drug named '{drug_name}' used to treat '{disease}' in '{country}, drug to comapre with '{drug_comparator}'.
+# Function to fetch parameters with comments from OpenAI API
+def fetch_parameters_with_comments_from_api(country, drug_name, drug_comparator, disease):
+    prompt = f"""
+    You are an expert in pharmacoeconomics. Provide realistic parameters for a pharmacoeconomic analysis of a drug named '{drug_name}' used to treat '{disease}' in '{country}', drug to compare with '{drug_comparator}'.
 
-                      Respond ONLY with a valid JSON object and NOTHING else. DO NOT include markdown formatting, code blocks, or any prefix like 'json'. Your response MUST begin with '{{' and end with '}}'.
+    Respond ONLY with a valid JSON object and NOTHING else. DO NOT include markdown formatting, code blocks, or any prefix like 'json'. Your response MUST begin with '{{' and end with '}}'.
 
-                      The JSON must include the following structure with realistic placeholder values (fill all fields):
+    The JSON must follow this structure:
+    {{
+      "CEA": {{
+        "values": {{
+          "C_B": float,
+          "C_A": float,
+          "E_B": float,
+          "E_A": float,
+          "lambda": float
+        }},
+        "comments": {{
+          "C_B": "string",
+          "C_A": "string",
+          "E_B": "string",
+          "E_A": "string",
+          "lambda": "string"
+        }}
+      }},
+      "CUA": {{
+        "values": {{
+          "utility_B": [float, float],
+          "time_B": [float, float],
+          "utility_A": [float, float],
+          "time_A": [float, float],
+          "C_B": float,
+          "C_A": float
+        }},
+        "comments": {{
+          "utility_B": "string",
+          "time_B": "string",
+          "utility_A": "string",
+          "time_A": "string",
+          "C_B": "string",
+          "C_A": "string"
+        }}
+      }},
+      "CBA": {{
+        "values": {{
+          "benefits_B": float,
+          "benefits_A": float,
+          "C_B": float,
+          "C_A": float
+        }},
+        "comments": {{
+          "benefits_B": "string",
+          "benefits_A": "string",
+          "C_B": "string",
+          "C_A": "string"
+        }}
+      }},
+      "Decision_Analysis": {{
+        "values": {{
+          "probabilities": [float, float],
+          "costs": [float, float],
+          "lambda": float,
+          "E_B": float,
+          "E_A": float,
+          "C_B": float,
+          "C_A": float
+        }},
+        "comments": {{
+          "probabilities": "string",
+          "costs": "string",
+          "lambda": "string",
+          "E_B": "string",
+          "E_A": "string",
+          "C_B": "string",
+          "C_A": "string"
+        }}
+      }},
+      "Markov_Modeling": {{
+        "values": {{
+          "proportions": [float, float],
+          "state_costs": [float, float],
+          "state_outcomes": [float, float]
+        }},
+        "comments": {{
+          "proportions": "string",
+          "state_costs": "string",
+          "state_outcomes": "string"
+        }}
+      }},
+      "Discounting": {{
+        "values": {{
+          "future_value": float,
+          "discount_rate": float,
+          "time": float
+        }},
+        "comments": {{
+          "future_value": "string",
+          "discount_rate": "string",
+          "time": "string"
+        }}
+      }},
+      "Sensitivity_Analysis": {{
+        "values": {{
+          "param_min": float,
+          "param_max": float
+        }},
+        "comments": {{
+          "param_min": "string",
+          "param_max": "string"
+        }}
+      }}
+    }}
 
-                      {{
-                        "CEA": {{
-                          "C_B": float,
-                          "C_A": float,
-                          "E_B": float,
-                          "E_A": float,
-                          "lambda": float
-                        }},
-                        "CUA": {{
-                          "utility_B": [float, float],
-                          "time_B": [float, float],
-                          "utility_A": [float, float],
-                          "time_A": [float, float],
-                          "C_B": float,
-                          "C_A": float
-                        }},
-                        "CBA": {{
-                          "benefits_B": float,
-                          "benefits_A": float,
-                          "C_B": float,
-                          "C_A": float
-                        }},
-                        "Decision_Analysis": {{
-                          "probabilities": [float, float],
-                          "costs": [float, float],
-                          "lambda": float,
-                          "E_B": float,
-                          "E_A": float,
-                          "C_B": float,
-                          "C_A": float
-                        }},
-                        "Markov_Modeling": {{
-                          "proportions": [float, float],
-                          "state_costs": [float, float],
-                          "state_outcomes": [float, float]
-                        }},
-                        "Discounting": {{
-                          "future_value": float,
-                          "discount_rate": float,
-                          "time": float
-                        }},
-                        "Sensitivity_Analysis": {{
-                          "param_min": float,
-                          "param_max": float
-                        }}
-                      }}
-
-                    Values must be realistic for {country} and the treatment of {disease} with {drug_name}, drug comparator {drug_comparator}. If you make assumptions, reflect them in the values, but DO NOT include explanatory text.
-                    """
-
+    Provide realistic values for {country} in the context of treating {disease} with {drug_name}, compared to {drug_comparator}. Use short comments (max 100 words) to justify or explain each value and explain why you have proposed this value. Do not include any explanation outside the JSON.
+    """
     try:
-        
         response = client.chat.completions.create(
-                                                    model="deepseek-chat",
-                                                    messages=[
-                                                        {"role": "system", "content": "You are a pharmacoeconomic expert providing structured JSON data."},
-                                                        {"role": "user", "content": prompt},
-                                                    ],
-                                                    stream=False,
-                                                    temperature=0.3,
-                                                    max_tokens=1500
-                                                )
-
-        # Parse JSON response
+            model="deepseek-chat",
+            messages=[
+                {"role": "system", "content": "You are a pharmacoeconomic expert providing structured JSON data."},
+                {"role": "user", "content": prompt},
+            ],
+            stream=False,
+            temperature=0.3,
+            max_tokens=1500
+        )
         params = json.loads(response.choices[0].message.content)
         return params
     except Exception as e:
         st.error(f"Ошибка API: {e}. Используются параметры по умолчанию.")
-        # Fallback parameters
         return {
-            "CEA": {"C_B": 50000, "C_A": 30000, "E_B": 5, "E_A": 3, "lambda": 50000},
-            "CUA": {"utility_B": [0.8, 0.6], "time_B": [2, 3], "utility_A": [0.7, 0.5], "time_A": [2, 3], "C_B": 50000, "C_A": 30000},
-            "CBA": {"benefits_B": 80000, "benefits_A": 60000, "C_B": 50000, "C_A": 30000},
-            "Decision_Analysis": {"probabilities": [0.6, 0.4], "costs": [20000, 40000], "lambda": 50000, "E_B": 5, "E_A": 3, "C_B": 50000, "C_A": 30000},
-            "Markov_Modeling": {"proportions": [0.7, 0.3], "state_costs": [15000, 25000], "state_outcomes": [0.8, 0.5]},
-            "Discounting": {"future_value": 10000, "discount_rate": 0.03, "time": 5},
-            "Sensitivity_Analysis": {"param_min": 20000, "param_max": 60000}
+            "CEA": {
+                "values": {"C_B": 50000, "C_A": 30000, "E_B": 5, "E_A": 3, "lambda": 50000},
+                "comments": {
+                    "C_B": "Default cost for drug B based on typical treatment expenses.",
+                    "C_A": "Default cost for comparator drug A.",
+                    "E_B": "Default effectiveness for drug B in life years.",
+                    "E_A": "Default effectiveness for drug A in life years.",
+                    "lambda": "Default willingness-to-pay threshold."
+                }
+            },
+            "CUA": {
+                "values": {"utility_B": [0.8, 0.6], "time_B": [2, 3], "utility_A": [0.7, 0.5], "time_A": [2, 3], "C_B": 50000, "C_A": 30000},
+                "comments": {
+                    "utility_B": "Default utility weights for drug B.",
+                    "time_B": "Default time periods for drug B.",
+                    "utility_A": "Default utility weights for drug A.",
+                    "time_A": "Default time periods for drug A.",
+                    "C_B": "Default cost for drug B.",
+                    "C_A": "Default cost for drug A."
+                }
+            },
+            "CBA": {
+                "values": {"benefits_B": 80000, "benefits_A": 60000, "C_B": 50000, "C_A": 30000},
+                "comments": {
+                    "benefits_B": "Default benefits for drug B.",
+                    "benefits_A": "Default benefits for drug A.",
+                    "C_B": "Default cost for drug B.",
+                    "C_A": "Default cost for drug A."
+                }
+            },
+            "Decision_Analysis": {
+                "values": {"probabilities": [0.6, 0.4], "costs": [20000, 40000], "lambda": 50000, "E_B": 5, "E_A": 3, "C_B": 50000, "C_A": 30000},
+                "comments": {
+                    "probabilities": "Default probabilities for outcomes.",
+                    "costs": "Default costs for outcomes.",
+                    "lambda": "Default willingness-to-pay threshold.",
+                    "E_B": "Default effectiveness for drug B.",
+                    "E_A": "Default effectiveness for drug A.",
+                    "C_B": "Default cost for drug B.",
+                    "C_A": "Default cost for drug A."
+                }
+            },
+            "Markov_Modeling": {
+                "values": {"proportions": [0.7, 0.3], "state_costs": [15000, 25000], "state_outcomes": [0.8, 0.5]},
+                "comments": {
+                    "proportions": "Default state proportions.",
+                    "state_costs": "Default costs per state.",
+                    "state_outcomes": "Default outcomes per state."
+                }
+            },
+            "Discounting": {
+                "values": {"future_value": 10000, "discount_rate": 0.03, "time": 5},
+                "comments": {
+                    "future_value": "Default future value.",
+                    "discount_rate": "Default discount rate.",
+                    "time": "Default time horizon."
+                }
+            },
+            "Sensitivity_Analysis": {
+                "values": {"param_min": 20000, "param_max": 60000},
+                "comments": {
+                    "param_min": "Default minimum parameter value.",
+                    "param_max": "Default maximum parameter value."
+                }
+            }
         }
-        
 
 # Calculation functions (unchanged)
 def calculate_icer(C_B, C_A, E_B, E_A):
@@ -161,7 +269,7 @@ if st.session_state.stage == 'input':
         
         submitted = st.form_submit_button("Далее")
         if submitted and country and drug_name and disease:
-            st.session_state.parameters = fetch_parameters_from_api(country, drug_name, drug_comparator, disease)
+            st.session_state.parameters = fetch_parameters_with_comments_from_api(country, drug_name, drug_comparator, disease)
             st.session_state.stage = 'analysis'
             st.rerun()
 
@@ -174,55 +282,62 @@ if st.session_state.stage == 'analysis':
         st.header("Параметры")
         
         with st.expander("Анализ эффективности затрат (CEA)"):
-            cea_params = st.session_state.parameters["CEA"]
-            cea_C_B = st.number_input("Затраты B ($)", value=float(cea_params["C_B"]), key="cea_C_B")
-            cea_C_A = st.number_input("Затраты A ($)", value=float(cea_params["C_A"]), key="cea_C_A")
-            cea_E_B = st.number_input("Эффективность B (годы жизни)", value=float(cea_params["E_B"]), key="cea_E_B")
-            cea_E_A = st.number_input("Эффективность A (годы жизни)", value=float(cea_params["E_A"]), key="cea_E_A")
-            cea_lambda = st.number_input("Порог готовности платить ($/единица)", value=float(cea_params["lambda"]), key="cea_lambda")
+            cea_params = st.session_state.parameters["CEA"]["values"]
+            cea_comments = st.session_state.parameters["CEA"]["comments"]
+            cea_C_B = st.number_input("Затраты B ($)", value=float(cea_params["C_B"]), key="cea_C_B", help=cea_comments["C_B"])
+            cea_C_A = st.number_input("Затраты A ($)", value=float(cea_params["C_A"]), key="cea_C_A", help=cea_comments["C_A"])
+            cea_E_B = st.number_input("Эффективность B (годы жизни)", value=float(cea_params["E_B"]), key="cea_E_B", help=cea_comments["E_B"])
+            cea_E_A = st.number_input("Эффективность A (годы жизни)", value=float(cea_params["E_A"]), key="cea_E_A", help=cea_comments["E_A"])
+            cea_lambda = st.number_input("Порог готовности платить ($/единица)", value=float(cea_params["lambda"]), key="cea_lambda", help=cea_comments["lambda"])
         
         with st.expander("Анализ полезности затрат (CUA)"):
-            cua_params = st.session_state.parameters["CUA"]
-            cua_C_B = st.number_input("Затраты B ($)", value=float(cua_params["C_B"]), key="cua_C_B")
-            cua_C_A = st.number_input("Затраты A ($)", value=float(cua_params["C_A"]), key="cua_C_A")
-            cua_utility_B = st.text_input("Веса полезности B (через запятую)", value=",".join(map(str, cua_params["utility_B"])), key="cua_utility_B")
-            cua_time_B = st.text_input("Время B (годы, через запятую)", value=",".join(map(str, cua_params["time_B"])), key="cua_time_B")
-            cua_utility_A = st.text_input("Веса полезности A (через запятую)", value=",".join(map(str, cua_params["utility_A"])), key="cua_utility_A")
-            cua_time_A = st.text_input("Время A (годы, через запятую)", value=",".join(map(str, cua_params["time_A"])), key="cua_time_A")
+            cua_params = st.session_state.parameters["CUA"]["values"]
+            cua_comments = st.session_state.parameters["CUA"]["comments"]
+            cua_C_B = st.number_input("Затраты B ($)", value=float(cua_params["C_B"]), key="cua_C_B", help=cua_comments["C_B"])
+            cua_C_A = st.number_input("Затраты A ($)", value=float(cua_params["C_A"]), key="cua_C_A", help=cua_comments["C_A"])
+            cua_utility_B = st.text_input("Веса полезности B (через запятую)", value=",".join(map(str, cua_params["utility_B"])), key="cua_utility_B", help=cua_comments["utility_B"])
+            cua_time_B = st.text_input("Время B (годы, через запятую)", value=",".join(map(str, cua_params["time_B"])), key="cua_time_B", help=cua_comments["time_B"])
+            cua_utility_A = st.text_input("Веса полезности A (через запятую)", value=",".join(map(str, cua_params["utility_A"])), key="cua_utility_A", help=cua_comments["utility_A"])
+            cua_time_A = st.text_input("Время A (годы, через запятую)", value=",".join(map(str, cua_params["time_A"])), key="cua_time_A", help=cua_comments["time_A"])
         
         with st.expander("Анализ затрат и выгод (CBA)"):
-            cba_params = st.session_state.parameters["CBA"]
-            cba_benefits_B = st.number_input("Выгоды B ($)", value=float(cba_params["benefits_B"]), key="cba_benefits_B")
-            cba_benefits_A = st.number_input("Выгоды A ($)", value=float(cba_params["benefits_A"]), key="cba_benefits_A")
-            cba_C_B = st.number_input("Затраты B ($)", value=float(cba_params["C_B"]), key="cba_C_B")
-            cba_C_A = st.number_input("Затраты A ($)", value=float(cba_params["C_A"]), key="cba_C_A")
+            cba_params = st.session_state.parameters["CBA"]["values"]
+            cba_comments = st.session_state.parameters["CBA"]["comments"]
+            cba_benefits_B = st.number_input("Выгоды B ($)", value=float(cba_params["benefits_B"]), key="cba_benefits_B", help=cba_comments["benefits_B"])
+            cba_benefits_A = st.number_input("Выгоды A ($)", value=float(cba_params["benefits_A"]), key="cba_benefits_A", help=cba_comments["benefits_A"])
+            cba_C_B = st.number_input("Затраты B ($)", value=float(cba_params["C_B"]), key="cba_C_B", help=cba_comments["C_B"])
+            cba_C_A = st.number_input("Затраты A ($)", value=float(cba_params["C_A"]), key="cba_C_A", help=cba_comments["C_A"])
         
         with st.expander("Анализ решений"):
-            da_params = st.session_state.parameters["Decision_Analysis"]
-            da_probabilities = st.text_input("Вероятности (через запятую)", value=",".join(map(str, da_params["probabilities"])), key="da_probabilities")
-            da_costs = st.text_input("Затраты на исход ($, через запятую)", value=",".join(map(str, da_params["costs"])), key="da_costs")
-            da_lambda = st.number_input("Порог готовности платить ($/единица)", value=float(da_params["lambda"]), key="da_lambda")
-            da_E_B = st.number_input("Эффективность B", value=float(da_params["E_B"]), key="da_E_B")
-            da_E_A = st.number_input("Эффективность A", value=float(da_params["E_A"]), key="da_E_A")
-            da_C_B = st.number_input("Затраты B ($)", value=float(da_params["C_B"]), key="da_C_B")
-            da_C_A = st.number_input("Затраты A ($)", value=float(da_params["C_A"]), key="da_C_A")
+            da_params = st.session_state.parameters["Decision_Analysis"]["values"]
+            da_comments = st.session_state.parameters["Decision_Analysis"]["comments"]
+            da_probabilities = st.text_input("Вероятности (через запятую)", value=",".join(map(str, da_params["probabilities"])), key="da_probabilities", help=da_comments["probabilities"])
+            da_costs = st.text_input("Затраты на исход ($, через запятую)", value=",".join(map(str, da_params["costs"])), key="da_costs", help=da_comments["costs"])
+            da_lambda = st.number_input("Порог готовности платить ($/единица)", value=float(da_params["lambda"]), key="da_lambda", help=da_comments["lambda"])
+            da_E_B = st.number_input("Эффективность B", value=float(da_params["E_B"]), key="da_E_B", help=da_comments["E_B"])
+            da_E_A = st.number_input("Эффективность A", value=float(da_params["E_A"]), key="da_E_A", help=da_comments["E_A"])
+            da_C_B = st.number_input("Затраты B ($)", value=float(da_params["C_B"]), key="da_C_B", help=da_comments["C_B"])
+            da_C_A = st.number_input("Затраты A ($)", value=float(da_params["C_A"]), key="da_C_A", help=da_comments["C_A"])
         
         with st.expander("Моделирование Маркова"):
-            markov_params = st.session_state.parameters["Markov_Modeling"]
-            markov_proportions = st.text_input("Доли в состояниях (через запятую)", value=",".join(map(str, markov_params["proportions"])), key="markov_proportions")
-            markov_state_costs = st.text_input("Затраты на состояния ($, через запятую)", value=",".join(map(str, markov_params["state_costs"])), key="markov_state_costs")
-            markov_state_outcomes = st.text_input("Результаты состояний (через запятую)", value=",".join(map(str, markov_params["state_outcomes"])), key="markov_state_outcomes")
+            markov_params = st.session_state.parameters["Markov_Modeling"]["values"]
+            markov_comments = st.session_state.parameters["Markov_Modeling"]["comments"]
+            markov_proportions = st.text_input("Доли в состояниях (через запятую)", value=",".join(map(str, markov_params["proportions"])), key="markov_proportions", help=markov_comments["proportions"])
+            markov_state_costs = st.text_input("Затраты на состояния ($, через запятую)", value=",".join(map(str, markov_params["state_costs"])), key="markov_state_costs", help=markov_comments["state_costs"])
+            markov_state_outcomes = st.text_input("Результаты состояний (через запятую)", value=",".join(map(str, markov_params["state_outcomes"])), key="markov_state_outcomes", help=markov_comments["state_outcomes"])
         
         with st.expander("Дисконтирование"):
-            disc_params = st.session_state.parameters["Discounting"]
-            disc_future_value = st.number_input("Будущая стоимость ($)", value=float(disc_params["future_value"]), key="disc_future_value")
-            disc_rate = st.number_input("Ставка дисконтирования", value=float(disc_params["discount_rate"]), key="disc_rate")
-            disc_time = st.number_input("Время (годы)", value=float(disc_params["time"]), key="disc_time")
+            disc_params = st.session_state.parameters["Discounting"]["values"]
+            disc_comments = st.session_state.parameters["Discounting"]["comments"]
+            disc_future_value = st.number_input("Будущая стоимость ($)", value=float(disc_params["future_value"]), key="disc_future_value", help=disc_comments["future_value"])
+            disc_rate = st.number_input("Ставка дисконтирования", value=float(disc_params["discount_rate"]), key="disc_rate", help=disc_comments["discount_rate"])
+            disc_time = st.number_input("Время (годы)", value=float(disc_params["time"]), key="disc_time", help=disc_comments["time"])
         
         with st.expander("Анализ чувствительности"):
-            sens_params = st.session_state.parameters["Sensitivity_Analysis"]
-            sens_param_min = st.number_input("Минимальное значение параметра ($)", value=float(sens_params["param_min"]), key="sens_param_min")
-            sens_param_max = st.number_input("Максимальное значение параметра ($)", value=float(sens_params["param_max"]), key="sens_param_max")
+            sens_params = st.session_state.parameters["Sensitivity_Analysis"]["values"]
+            sens_comments = st.session_state.parameters["Sensitivity_Analysis"]["comments"]
+            sens_param_min = st.number_input("Минимальное значение параметра ($)", value=float(sens_params["param_min"]), key="sens_param_min", help=sens_comments["param_min"])
+            sens_param_max = st.number_input("Максимальное значение параметра ($)", value=float(sens_params["param_max"]), key="sens_param_max", help=sens_comments["param_max"])
 
     # Main area: Results and Dashboards
     col1, col2 = st.columns([2, 1])
