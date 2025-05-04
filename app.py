@@ -7,7 +7,7 @@ import json
 
 # Initialize OpenAI client
 
-client = OpenAI(st.secrets["deepseek"]["api_key"], 
+client = OpenAI(api_key=st.secrets["deepseek"]["api_key"], 
                 base_url="https://api.deepseek.com")
 
 # Function to fetch parameters from OpenAI API
